@@ -1,3 +1,5 @@
+# data.py
+
 matematika_test_base = {
     "5": [
         {"q": "48 + 27 = ?", "o": ["65", "75", "85", "95"], "a": "75"},
@@ -248,7 +250,7 @@ biology_test_base = {
     "11": [
         {"q": "Biogeotsenoz nima?", "o": ["Ekologik tizim", "Faqat tuproq", "Faqat havo", "Oila"], "a": "Ekologik tizim"},
         {"q": "Produsentlar nima?", "o": ["O'simliklar", "Hayvonlar", "Bakteriyalar", "Zamburug'lar"], "a": "O'simliklar"},
-        {"q": "Antropogenez nimani o'rganadi?", "o": ["Odam kelib chiqishini", "Hayvonlarni", "Yulduzlarni", "Dengizni"], "a": "Odam kelib chiqishini"},
+        {"q": "Antropogenez nimani o'rganadi?", "o": ["Oadam kelib chiqishini", "Hayvonlarni", "Yulduzlarni", "Dengizni"], "a": "Odam kelib chiqishini"},
         {"q": "Agrosenoz nima?", "o": ["Sun'iy tizim (dala)", "O'rmon", "Okean", "Sahro"], "a": "Sun'iy tizim (dala)"},
         {"q": "Biosfera nima?", "o": ["Hayot qobig'i", "Tosh qobig'i", "Havo qobig'i", "Suv"], "a": "Hayot qobig'i"},
         {"q": "Ekologiya atamasini kim kiritgan?", "o": ["Gekkel", "Darwin", "Linney", "Mendel"], "a": "Gekkel"},
