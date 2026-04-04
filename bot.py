@@ -2,19 +2,29 @@ import os
 import telebot
 import random
 from telebot import types
-# Import xatosi bermasligi uchun barchasini tekshirib oling
-from data import matematika_test_base, english_test_base, biology_test_base, tarix_test_base
 
-# Tokenni Render/Hosting panelidan oladi
-TOKEN = os.environ.get("BOT_TOKEN")
+# data.py faylidan testlarni import qilish
+try:
+    from data import matematika_test_base, english_test_base, biology_test_base, tarix_test_base
+except ImportError:
+    print("XATO: data.py fayli bot.py bilan bitta papkada bo'lishi kerak!")
+
+# XAVFSIZLIK: Tokenni muhit o'zgaruvchisidan olamiz
+TOKEN = os.environ.get("BOT_TOKEN") 
 bot = telebot.TeleBot(TOKEN)
+
 user_data = {}
 
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("Matematika", "English", "Biologiya", "Tarix")
-    bot.send_message(message.chat.id, "<b>Fanlardan birini tanlang:</b>", reply_markup=markup, parse_mode="HTML")
+    bot.send_message(
+        message.chat.id, 
+        "<b>Salom! Fanlardan birini tanlang va testni boshlang:</b>", 
+        reply_markup=markup, 
+        parse_mode="HTML"
+    )
 
 @bot.message_handler(func=lambda m: m.text in ["Matematika", "English", "Biologiya", "Tarix"])
 def subject(message):
@@ -22,14 +32,15 @@ def subject(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btns = [types.KeyboardButton(f"{i}-sinf") for i in range(5, 12)]
     markup.add(*btns)
-    bot.send_message(message.chat.id, f"📌 {message.text}. Sinfni tanlang:", reply_markup=markup)
+    bot.send_message(message.chat.id, f"📌 {message.text}. Endi sinfni tanlang:", reply_markup=markup)
 
 @bot.message_handler(func=lambda m: "sinf" in m.text)
 def select_class(message):
     chat_id = message.chat.id
-    if chat_id not in user_data: return
+    if chat_id not in user_data: 
+        return start(message)
     
-    sinf = message.text.split("-")[0]
+    sinf_nomi = message.text.split("-")[0]  # "5-sinf" -> "5"
     sub = user_data[chat_id]['subject']
     
     bases = {
@@ -39,25 +50,27 @@ def select_class(message):
         "Tarix": tarix_test_base
     }
     
-    questions = bases[sub].get(sinf)
+    questions = bases[sub].get(sinf_nomi)
+    
     if questions:
-        # Har doim aynan 10 ta savol olish (bazada ko'proq bo'lsa ham)
-        q_count = min(len(questions), 10)
-        q_list = random.sample(questions, q_count) 
+        # Aralashtirilgan 10 ta savol
+        q_list = random.sample(questions, len(questions))
         user_data[chat_id].update({'questions': q_list, 'score': 0, 'current_q': 0})
         send_q(chat_id)
+    else:
+        bot.send_message(chat_id, "Hozircha bu sinf uchun testlar mavjud emas.")
 
 def send_q(chat_id):
     data = user_data[chat_id]
     curr = data['current_q']
     q = data['questions'][curr]
     
-    # Savol raqami bu yerda chiqadi
+    # Savolni raqami bilan chiroyli chiqarish
     text = f"<b>{curr + 1}-savol:</b>\n\n{q['q']}"
     
     markup = types.InlineKeyboardMarkup()
     opts = q['o'].copy()
-    random.shuffle(opts)
+    random.shuffle(opts) # Variantlarni aralashtirish
     
     for o in opts:
         callback = "c" if o == q['a'] else "w"
@@ -68,20 +81,33 @@ def send_q(chat_id):
 @bot.callback_query_handler(func=lambda call: True)
 def handle_answer(call):
     chat_id = call.message.chat.id
-    if chat_id not in user_data: return
+    if chat_id not in user_data: 
+        return
 
+    # To'g'ri bo'lsa ball qo'shish
     if call.data == "c":
         user_data[chat_id]['score'] += 1
     
     user_data[chat_id]['current_q'] += 1
-    bot.delete_message(chat_id, call.message.message_id)
     
+    # Ekran toza turishi uchun eski savolni o'chirish
+    try:
+        bot.delete_message(chat_id, call.message.message_id)
+    except:
+        pass
+    
+    # Navbatdagi savol yoki natija
     if user_data[chat_id]['current_q'] < len(user_data[chat_id]['questions']):
         send_q(chat_id)
     else:
         score = user_data[chat_id]['score']
         total = len(user_data[chat_id]['questions'])
-        bot.send_message(chat_id, f"<b>🏁 Test yakunlandi!</b>\n\nNatija: <b>{score}/{total}</b>", parse_mode="HTML")
+        bot.send_message(
+            chat_id, 
+            f"<b>🏁 Test yakunlandi!</b>\n\nSiz 10 tadan <b>{score}</b> tasiga to'g'ri javob berdingiz.", 
+            parse_mode="HTML"
+        )
         start(call.message)
 
+print("Bot ishga tushdi...")
 bot.infinity_polling()
