@@ -2,13 +2,12 @@ import os
 import telebot
 import random
 from telebot import types
+# Import xatosi bermasligi uchun barchasini tekshirib oling
 from data import matematika_test_base, english_test_base, biology_test_base, tarix_test_base
 
-# TOKENNI TO'G'RIDAN-TO'G'RI YOZMAYMIZ
-# Render yoki boshqa hostingda "BOT_TOKEN" nomli o'zgaruvchi yaratasiz
-TOKEN = os.environ.get("BOT_TOKEN") 
+# Tokenni Render/Hosting panelidan oladi
+TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
-
 user_data = {}
 
 @bot.message_handler(commands=['start'])
@@ -42,8 +41,9 @@ def select_class(message):
     
     questions = bases[sub].get(sinf)
     if questions:
-        # To'liq 10 ta savolni aralashtirib olamiz
-        q_list = random.sample(questions, len(questions)) 
+        # Har doim aynan 10 ta savol olish (bazada ko'proq bo'lsa ham)
+        q_count = min(len(questions), 10)
+        q_list = random.sample(questions, q_count) 
         user_data[chat_id].update({'questions': q_list, 'score': 0, 'current_q': 0})
         send_q(chat_id)
 
@@ -52,15 +52,14 @@ def send_q(chat_id):
     curr = data['current_q']
     q = data['questions'][curr]
     
-    # SAVOL RAQAMINI SHU YERDA AVTOMAT QO'YAMIZ
+    # Savol raqami bu yerda chiqadi
     text = f"<b>{curr + 1}-savol:</b>\n\n{q['q']}"
     
     markup = types.InlineKeyboardMarkup()
     opts = q['o'].copy()
-    random.shuffle(opts) # Variantlarni ham aralashtiramiz
+    random.shuffle(opts)
     
     for o in opts:
-        # Callback_data orqali to'g'ri (c) yoki noto'g'ri (w) ekanini yuboramiz
         callback = "c" if o == q['a'] else "w"
         markup.add(types.InlineKeyboardButton(o, callback_data=callback))
     
@@ -75,15 +74,14 @@ def handle_answer(call):
         user_data[chat_id]['score'] += 1
     
     user_data[chat_id]['current_q'] += 1
-    
-    # Eski xabarni o'chirib turish (ekran toza bo'lishi uchun)
     bot.delete_message(chat_id, call.message.message_id)
     
     if user_data[chat_id]['current_q'] < len(user_data[chat_id]['questions']):
         send_q(chat_id)
     else:
         score = user_data[chat_id]['score']
-        bot.send_message(chat_id, f"<b>🏁 Test yakunlandi!</b>\n\nSiz 10 tadan <b>{score}</b> tasiga to'g'ri javob berdingiz.", parse_mode="HTML")
+        total = len(user_data[chat_id]['questions'])
+        bot.send_message(chat_id, f"<b>🏁 Test yakunlandi!</b>\n\nNatija: <b>{score}/{total}</b>", parse_mode="HTML")
         start(call.message)
 
 bot.infinity_polling()
