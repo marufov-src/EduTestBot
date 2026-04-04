@@ -9,7 +9,7 @@ try:
 except ImportError:
     print("XATO: data.py fayli bot.py bilan bitta papkada bo'lishi kerak!")
 
-# XAVFSIZLIK: Tokenni muhit o'zgaruvchisidan olamiz
+# Tokenni bu yerga qo'ying yoki muhit o'zgaruvchisiga (Environment Variable) BOT_TOKEN deb yozing
 TOKEN = os.environ.get("BOT_TOKEN") 
 bot = telebot.TeleBot(TOKEN)
 
@@ -40,7 +40,7 @@ def select_class(message):
     if chat_id not in user_data: 
         return start(message)
     
-    sinf_nomi = message.text.split("-")[0]  # "5-sinf" -> "5"
+    sinf_nomi = message.text.split("-")[0]
     sub = user_data[chat_id]['subject']
     
     bases = {
@@ -53,7 +53,6 @@ def select_class(message):
     questions = bases[sub].get(sinf_nomi)
     
     if questions:
-        # Aralashtirilgan 10 ta savol
         q_list = random.sample(questions, len(questions))
         user_data[chat_id].update({'questions': q_list, 'score': 0, 'current_q': 0})
         send_q(chat_id)
@@ -65,12 +64,11 @@ def send_q(chat_id):
     curr = data['current_q']
     q = data['questions'][curr]
     
-    # Savolni raqami bilan chiroyli chiqarish
     text = f"<b>{curr + 1}-savol:</b>\n\n{q['q']}"
     
     markup = types.InlineKeyboardMarkup()
     opts = q['o'].copy()
-    random.shuffle(opts) # Variantlarni aralashtirish
+    random.shuffle(opts)
     
     for o in opts:
         callback = "c" if o == q['a'] else "w"
@@ -84,19 +82,17 @@ def handle_answer(call):
     if chat_id not in user_data: 
         return
 
-    # To'g'ri bo'lsa ball qo'shish
     if call.data == "c":
         user_data[chat_id]['score'] += 1
     
     user_data[chat_id]['current_q'] += 1
     
-    # Ekran toza turishi uchun eski savolni o'chirish
     try:
         bot.delete_message(chat_id, call.message.message_id)
     except:
         pass
     
-    # Navbatdagi savol yoki natija
+    # MUHIM QISM: else endi tepadagi if bilan bir qatorda
     if user_data[chat_id]['current_q'] < len(user_data[chat_id]['questions']):
         send_q(chat_id)
     else:
@@ -104,10 +100,12 @@ def handle_answer(call):
         total = len(user_data[chat_id]['questions'])
         bot.send_message(
             chat_id, 
-            f"<b>🏁 Test yakunlandi!</b>\n\nSiz 10 tadan <b>{score}</b> tasiga to'g'ri javob berdingiz.", 
+            f"<b>🏁 Test yakunlandi!</b>\n\nSiz {total} tadan <b>{score}</b> tasiga to'g'ri javob berdingiz.", 
             parse_mode="HTML"
         )
         start(call.message)
 
-print("Bot ishga tushdi...")
-bot.infinity_polling()
+# Bu qator eng chekkada va eng pastda bo'lishi kerak
+if __name__ == "__main__":
+    print("Bot ishga tushdi...")
+    bot.infinity_polling()
