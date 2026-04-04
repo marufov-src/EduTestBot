@@ -181,8 +181,8 @@ async def check_ans(callback: types.CallbackQuery, state: FSMContext):
     await send_question(callback, state)
 
 async def main():
-    print("Bot muvaffaqiyatli ishga tushdi!")
     keep_alive()  # Render uchun veb-serverni ishga tushiradi
+    print("Bot muvaffaqiyatli ishga tushdi!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
