@@ -1,123 +1,101 @@
-import os, asyncio, time
-from flask import Flask
-from threading import Thread
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import Command
-from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
-from data import TEST_BAZA
+import telebot
+from telebot import types
+import random
+# data.py faylingizdan barcha bazalarni chaqirib olamiz
+from data import matematika_test_base, english_test_base, biology_test_base
 
-# --- RENDER KEEP ALIVE ---
-app = Flask('')
-@app.route('/')
-def home(): return "Bot is Online!"
-def run(): app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
-def keep_alive():
-    t = Thread(target=run); t.daemon = True; t.start()
+bot = telebot.TeleBot("BOT_TOKENINGIZNI_YOZING")
 
-# --- BOT SOZLAMALARI ---
-TOKEN = os.getenv('BOT_TOKEN')
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
-user_state = {}
+# Foydalanuvchi holatini saqlash uchun lug'at
+user_data = {}
 
-def get_main_menu():
-    builder = ReplyKeyboardBuilder()
-    for fan in TEST_BAZA.keys():
-        builder.add(types.KeyboardButton(text=fan))
-    builder.adjust(2)
-    return builder.as_markup(resize_keyboard=True)
+@bot.message_handler(commands=['start'])
+def start(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    item1 = types.KeyboardButton("Matematika")
+    item2 = types.KeyboardButton("English")
+    item3 = types.KeyboardButton("Biologiya") # Yangi bo'lim
+    markup.add(item1, item2, item3)
+    bot.send_message(message.chat.id, "Salom! Fanlardan birini tanlang:", reply_markup=markup)
 
-@dp.message(Command("start"))
-async def start_handler(message: types.Message):
-    await message.answer(f"Assalomu alaykum, {message.from_user.first_name}!\nFanni tanlang:", 
-                         reply_markup=get_main_menu())
+@bot.message_handler(func=lambda message: message.text in ["Matematika", "English", "Biologiya"])
+def select_subject(message):
+    subject = message.text
+    user_data[message.chat.id] = {'subject': subject}
+    
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    # 5-11 sinf tugmalari
+    btns = [types.KeyboardButton(f"{i}-sinf") for i in range(5, 12)]
+    markup.add(*btns)
+    bot.send_message(message.chat.id, f"{subject} fanidan sinfingizni tanlang:", reply_markup=markup)
 
-@dp.message(F.text == "⬅️ Orqaga")
-async def back_to_main(message: types.Message):
-    await message.answer("Asosiy menyuga qaytdingiz. Fanni tanlang:", reply_markup=get_main_menu())
+@bot.message_handler(func=lambda message: "sinf" in message.text)
+def select_class(message):
+    chat_id = message.chat.id
+    sinf_num = message.text.split("-")[0] # "5-sinf" -> "5"
+    
+    if chat_id not in user_data:
+        bot.send_message(chat_id, "Iltimos, avval fanni tanlang.")
+        return
 
-@dp.message(F.text.in_(TEST_BAZA.keys()))
-async def fan_tanlash(message: types.Message):
-    fan = message.text
-    builder = ReplyKeyboardBuilder()
-    for sinf in range(5, 12):
-        builder.add(types.KeyboardButton(text=f"{fan} | {sinf}-sinf"))
-    builder.add(types.KeyboardButton(text="⬅️ Orqaga"))
-    builder.adjust(3)
-    await message.answer(f"{fan} fani tanlandi. Sinfni tanlang:", 
-                         reply_markup=builder.as_markup(resize_keyboard=True))
+    subject = user_data[chat_id]['subject']
+    
+    # Qaysi bazadan olishni aniqlaymiz
+    if subject == "Matematika":
+        questions = matematika_test_base.get(sinf_num)
+    elif subject == "English":
+        questions = english_test_base.get(sinf_num)
+    else: # Biologiya
+        questions = biology_test_base.get(sinf_num)
 
-@dp.message(F.text.contains("|"))
-async def test_boshlash(message: types.Message):
-    try:
-        parts = message.text.split(" | ")
-        fan, sinf = parts[0], parts[1].split("-")[0]
-        savollar = TEST_BAZA.get(fan, {}).get(sinf, [])
+    if questions:
+        # Savollarni aralashtirib, birinchisini chiqaramiz
+        random.shuffle(questions)
+        user_data[chat_id]['questions'] = questions
+        user_data[chat_id]['score'] = 0
+        user_data[chat_id]['current_q'] = 0
         
-        if not savollar:
-            await message.answer(f"Uzur, {fan} {sinf}-sinf bazasi hali bo'sh.")
-            return
-
-        user_state[message.from_user.id] = {
-            "fan": fan, "sinf": sinf, "index": 0, "ball": 0, 
-            "total": len(savollar), "start_time": time.time()
-        }
-        await savol_yuborish(message.from_user.id)
-    except:
-        await message.answer("Xatolik! /start bosing.")
-
-async def savol_yuborish(user_id):
-    data = user_state[user_id]
-    savol = TEST_BAZA[data['fan']][data['sinf']][data['index']]
-    
-    builder = InlineKeyboardBuilder()
-    for variant in savol['o']:
-        builder.add(types.InlineKeyboardButton(text=variant, callback_data=f"ans_{variant}"))
-    builder.adjust(2)
-    
-    text = f"📚 {data['fan']} | {data['sinf']}-sinf\n"
-    text += f"Savol {data['index']+1}/{data['total']}:\n\n<b>{savol['q']}</b>"
-    
-    await bot.send_message(user_id, text, reply_markup=builder.as_markup(), parse_mode="HTML")
-
-@dp.callback_query(F.data.startswith("ans_"))
-async def tekshirish(call: types.CallbackQuery):
-    u_id = call.from_user.id
-    if u_id not in user_state: return
-
-    tanlov = call.data.replace("ans_", "")
-    data = user_state[u_id]
-    javob = TEST_BAZA[data['fan']][data['sinf']][data['index']]['a']
-
-    if tanlov == javob:
-        data['ball'] += 1
-    
-    data['index'] += 1
-    await call.message.delete()
-
-    if data['index'] < data['total']:
-        await savol_yuborish(u_id)
+        send_question(chat_id)
     else:
-        end_time = time.time()
-        sarflangan_vaqt = int(end_time - data['start_time'])
-        minut = sarflangan_vaqt // 60
-        soniya = sarflangan_vaqt % 60
-        
-        vaqt_text = f"{minut} daqiqa {soniya} soniya" if minut > 0 else f"{soniya} soniya"
-        foiz = int((data['ball'] / data['total']) * 100)
-        
-        await bot.send_message(u_id, 
-            f"🏆 <b>Test yakunlandi!</b>\n\n"
-            f"📊 Natija: {data['ball']}/{data['total']}\n"
-            f"📈 Sifat: {foiz}%\n"
-            f"⏱ Sarflangan vaqt: {vaqt_text}\n\n"
-            f"Yangi test boshlash uchun fanni tanlang 👇", 
-            reply_markup=get_main_menu(), parse_mode="HTML")
-        del user_state[u_id]
+        bot.send_message(chat_id, "Kechirasiz, bu sinf uchun savollar hali yuklanmagan.")
 
-async def main():
-    keep_alive()
-    await dp.start_polling(bot)
+def send_question(chat_id):
+    data = user_data[chat_id]
+    q_index = data['current_q']
+    questions = data['questions']
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    if q_index < len(questions):
+        q_item = questions[q_index]
+        markup = types.InlineKeyboardMarkup()
+        
+        # Variantlarni chiqarish
+        for option in q_item['o']:
+            callback_data = "correct" if option == q_item['a'] else "wrong"
+            markup.add(types.InlineKeyboardButton(text=option, callback_data=callback_data))
+            
+        bot.send_message(chat_id, q_item['q'], reply_markup=markup)
+    else:
+        # Test tugaganda
+        score = data['score']
+        total = len(questions)
+        bot.send_message(chat_id, f"Test tugadi! \nNatijangiz: {total} tadan {score} ta to'g'ri. ✅")
+        # Holatni tozalash
+        del user_data[chat_id]
+
+@bot.callback_query_handler(func=lambda call: True)
+def handle_answer(call):
+    chat_id = call.message.chat.id
+    if chat_id not in user_data: return
+
+    if call.data == "correct":
+        user_data[chat_id]['score'] += 1
+        bot.answer_callback_query(call.id, "To'g'ri!")
+    else:
+        bot.answer_callback_query(call.id, "Xato!")
+
+    user_data[chat_id]['current_q'] += 1
+    # Keyingi savolga o'tish uchun eski xabarni o'chiramiz yoki yangilaymiz
+    bot.delete_message(chat_id, call.message.message_id)
+    send_question(chat_id)
+
+bot.polling(none_stop=True)
