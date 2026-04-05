@@ -4,8 +4,7 @@ import random
 import time  # Vaqtni o'lchash uchun
 from telebot import types
 
-TOKEN = "8647512738:AAHTniHTPrNxw_Ks929ydZuFdIh3anw-WXM"
-bot = telebot.TeleBot(TOKEN)
+TOKEN = os.environ.get("BOT_TOKEN")bot = telebot.TeleBot(TOKEN)
 
 # Test ma'lumotlarini import qilish
 from data import matematika_test_base, english_test_base, biology_test_base, tarix_test_base
