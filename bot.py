@@ -36,7 +36,7 @@ def run_dummy_server():
 # --- SERTIFIKAT YARATISH FUNKSIYASI ---
 def create_certificate(name, subject, score, sinf):
     try:
-        img = Image.open("template.png") # GitHub-dagi bo'sh rasm nomi
+        img = Image.open("template.jpg") # GitHub-dagi bo'sh rasm nomi
         draw = ImageDraw.Draw(img)
         W, H = img.size
         
