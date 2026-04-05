@@ -8,7 +8,7 @@ import threading
 from telebot import types
 
 # 1. TOKENNI TEKSHIRING: @BotFather bergan tokenni to'liq qo'ying
-TOKEN = "8647512738:AAHTniHTPrNxw_Ks929ydZuFdIh3anw-WXM" 
+TOKEN = os.environ.get("BOT_TOKEN") 
 bot = telebot.TeleBot(TOKEN)
 
 # 2. DATA IMPORT (data.py fayli GitHubda borligini tekshiring)
