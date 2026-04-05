@@ -40,52 +40,43 @@ def create_certificate(name, subject, score, sinf):
         draw = ImageDraw.Draw(img)
         W, H = img.size
         
-        # Ranglar (Sertifikat bezaklariga mos tilla va to'q ko'k)
         dark_blue = (0, 32, 96) 
-        gold_text = (184, 134, 11)
         gray_text = (80, 80, 80)
 
-        # Shriftlarni o'lchami bilan yuklaymiz
+        # Shriftlarni o'lchamini TTF ga moslab KICHIKLASHTIRDIK
         try:
-            # myfont.ttf - siz yuklagan shrift nomi
-            font_title = ImageFont.truetype("myfont.ttf", 90) # SERTIFIKAT so'zi uchun
-            font_name = ImageFont.truetype("myfont.ttf", 110) # Ism uchun (Katta)
-            font_small = ImageFont.truetype("myfont.ttf", 45) # Qolgan matnlar uchun
+            # O'lchamlar (90, 110, 45) -> (50, 70, 35) ga kamaytirildi
+            font_title = ImageFont.truetype("myfont.ttf", 50) # SERTIFIKAT so'zi
+            font_name = ImageFont.truetype("myfont.ttf", 70)  # Ism
+            font_small = ImageFont.truetype("myfont.ttf", 35) # Qolgan matnlar
         except:
-            # Agar shrift yuklanmasa, standart shrift
             font_title = font_name = font_small = ImageFont.load_default()
 
-        # 1. Sarlavha: SERTIFIKAT
+        # 1. Sarlavha: SERTIFIKAT (Koordinatani KICHIKLASHTIRDIK H*0.22 -> H*0.2)
         title = "SERTIFIKAT"
-        # Matnni markazga hisoblash
         tw = draw.textlength(title, font=font_title)
-        draw.text(((W - tw) / 2, H * 0.22), title, fill=dark_blue, font=font_title)
+        draw.text(((W - tw) / 2, H * 0.2), title, fill=dark_blue, font=font_title)
         
-        # 2. Taqdim etish so'zi
+        # 2. Taqdim etish so'zi (Koordinatani KICHIKLASHTIRDIK H*0.38 -> H*0.35)
         sub_text = "Ushbu sertifikat bilan taqdirlanadi:"
         sw = draw.textlength(sub_text, font=font_small)
-        draw.text(((W - sw) / 2, H * 0.38), sub_text, fill=gray_text, font=font_small)
+        draw.text(((W - sw) / 2, H * 0.35), sub_text, fill=gray_text, font=font_small)
 
-        # 3. FOYDALANUVCHI ISMI (Asosiy urg'u)
+        # 3. FOYDALANUVCHI ISMI (Koordinatani KICHIKLASHTIRDIK H*0.48 -> H*0.45)
         full_name = str(name).upper()
         nw = draw.textlength(full_name, font=font_name)
-        draw.text(((W - nw) / 2, H * 0.48), full_name, fill=dark_blue, font=font_name)
+        draw.text(((W - nw) / 2, H * 0.45), full_name, fill=dark_blue, font=font_name)
 
-        # 4. Nima uchun berilgani
-        desc = f"Bilimlar bellashuvida {subject} fanidan"
+        # 4. Fan va Natija (Matnni qisqartirdik, markazga tushishi uchun)
+        desc = f"Fan: {subject} | Natija: {score}/10"
         dw = draw.textlength(desc, font=font_small)
-        draw.text(((W - dw) / 2, H * 0.65), desc, fill=gray_text, font=font_small)
-        
-        desc2 = f"ko'rsatgan 10/10 natijasi uchun."
-        dw2 = draw.textlength(desc2, font=font_small)
-        draw.text(((W - dw2) / 2, H * 0.72), desc2, fill=gray_text, font=font_small)
+        draw.text(((W - dw) / 2, H * 0.6), desc, fill=gray_text, font=font_small)
 
-        # 5. Sana (Pastda o'ngroqda yoki markazda)
+        # 5. Sana
         sana = time.strftime("%d.%m.%Y")
         snw = draw.textlength(sana, font=font_small)
-        draw.text(((W - snw) / 2, H * 0.85), sana, fill=gold_text, font=font_small)
+        draw.text(((W - snw) / 2, H * 0.8), sana, fill=dark_blue, font=font_small)
 
-        # Saqlash
         bio = io.BytesIO()
         bio.name = 'certificate.png'
         img.save(bio, 'PNG')
