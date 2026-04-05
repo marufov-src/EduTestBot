@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw, ImageFont
 TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# 2. DATA IMPORT (data.py mavjud bo'lishi kerak)
+# 2. DATA IMPORT
 try:
     from data import matematika_test_base, english_test_base, biology_test_base, tarix_test_base
 except ImportError:
@@ -22,7 +22,7 @@ except ImportError:
 user_data = {}
 leaderboards = {"Matematika": {}, "English": {}, "Biologiya": {}, "Tarix": {}}
 
-# --- RENDER UCHUN DUMMY SERVER (24/7 ISHLASHI UCHUN) ---
+# --- RENDER UCHUN DUMMY SERVER ---
 def run_dummy_server():
     PORT = int(os.environ.get("PORT", 8080))
     class MyHandler(http.server.SimpleHTTPRequestHandler):
@@ -33,10 +33,11 @@ def run_dummy_server():
     with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
         httpd.serve_forever()
 
-# --- SERTIFIKAT YARATISH FUNKSIYASI ---
+# --- SERTIFIKAT YARATISH (ENG XAVFSIZ VARIANT) ---
 def create_certificate(name, subject, score, sinf):
     try:
-        img = Image.open("template.jpg") # GitHub-dagi bo'sh rasm nomi
+        # Rasmni ochish (Nomi template.jpg bo'lishi shart)
+        img = Image.open("template.jpg")
         draw = ImageDraw.Draw(img)
         W, H = img.size
         
@@ -44,34 +45,34 @@ def create_certificate(name, subject, score, sinf):
         dark_blue = (0, 32, 96) 
         text_gray = (50, 50, 50)
 
-        # Shrift (Render-da standart fontni yuklaymiz)
+        # Shriftni yuklash (Agar topilmasa standart ishlaydi)
         try:
-            font_title = ImageFont.load_default() # Sarlavha
-            font_name = ImageFont.load_default()  # Ism
+            # Render (Linux) tizimida standart shriftlarni qidirish
+            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            if not os.path.exists(font_path):
+                font_path = None # Standartga o'tadi
+            
+            font_name = ImageFont.truetype(font_path, 60) if font_path else ImageFont.load_default()
+            font_small = ImageFont.truetype(font_path, 40) if font_path else ImageFont.load_default()
         except:
-            font_title = font_name = None
+            font_name = font_small = ImageFont.load_default()
 
-        # MATNLARNI CHIZISH (Kordinatalarni rasmingizga qarab o'zgartirish mumkin)
+        # Ismni markazga taxminan joylash
+        full_name = str(name).upper()
+        
         # 1. Sarlavha
-        draw.text((W/2 - 100, H*0.25), "SERTIFIKAT", fill=dark_blue, font=font_title)
+        draw.text((W/2 - 100, H*0.2), "SERTIFIKAT", fill=dark_blue, font=font_name)
         
-        # 2. Taqdim etish so'zi
-        draw.text((W/2 - 150, H*0.35), "Ushbu sertifikat bilan taqdirlanadi:", fill=text_gray)
+        # 2. Ism (Markazda)
+        draw.text((W/2 - 150, H*0.45), full_name, fill=dark_blue, font=font_name)
 
-        # 3. FOYDALANUVCHI ISMI
-        full_name = name.upper()
-        draw.text((W/2 - 120, H*0.45), full_name, fill=dark_blue)
+        # 3. Fan va Natija
+        info_text = f"Fan: {subject} | Natija: 10/10"
+        draw.text((W/2 - 180, H*0.6), info_text, fill=text_gray, font=font_small)
 
-        # 4. Asosiy matn
-        msg = f"Bilimlar bellashuvida {subject} fanidan"
-        draw.text((W/2 - 160, H*0.58), msg, fill=text_gray)
-        
-        msg2 = f"ko'rsatgan 10/10 natijasi uchun."
-        draw.text((W/2 - 140, H*0.65), msg2, fill=text_gray)
-
-        # 5. Sana
+        # 4. Sana
         sana = time.strftime("%d.%m.%Y")
-        draw.text((W/2 - 50, H*0.8), sana, fill=dark_blue)
+        draw.text((W/2 - 80, H*0.8), sana, fill=dark_blue, font=font_small)
 
         # Rasmni xotiraga saqlash
         bio = io.BytesIO()
@@ -80,7 +81,7 @@ def create_certificate(name, subject, score, sinf):
         bio.seek(0)
         return bio
     except Exception as e:
-        print(f"Sertifikat yaratishda xato: {e}")
+        print(f"Sertifikat yaratishda xato bo'ldi: {e}")
         return None
 
 # --- BOT LOGIKASI ---
@@ -102,9 +103,14 @@ def show_leaderboard_menu(message):
 
 @bot.message_handler(func=lambda m: m.text in ["Matematika", "English", "Biologiya", "Tarix"])
 def subject_select(message):
+    # Ism va familiyani to'liq olish
+    first = message.from_user.first_name if message.from_user.first_name else ""
+    last = message.from_user.last_name if message.from_user.last_name else ""
+    full_name = f"{first} {last}".strip()
+    
     user_data[message.chat.id] = {
         'subject': message.text,
-        'name': message.from_user.first_name + (" " + message.from_user.last_name if message.from_user.last_name else "")
+        'name': full_name if full_name else "O'quvchi"
     }
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btns = [types.KeyboardButton(f"{i}-sinf") for i in range(5, 12)]
@@ -119,7 +125,7 @@ def select_class(message):
     sinf_nomi = message.text.split("-")[0]
     sub = user_data[chat_id]['subject']
     
-    bases = {"Matematika": matematika_test_base, "English": english_test_base, "Biologiya": biology_test_base, "Tarix": tarix_test_base}
+    bases = {"Matematika": matematika_test_base, "English": english_test_base, "Biologiya": biology_test_base, "Tarix": tariax_test_base if 'tariax_test_base' in locals() else tarix_test_base}
     questions = bases[sub].get(sinf_nomi)
     
     if questions:
@@ -141,19 +147,6 @@ def send_question(chat_id):
     for o in opts:
         markup.add(types.InlineKeyboardButton(o, callback_data="correct" if o == q['a'] else "wrong"))
     bot.send_message(chat_id, f"<b>{data['current_q'] + 1}-savol:</b>\n\n{q['q']}", reply_markup=markup, parse_mode="HTML")
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("lb_"))
-def handle_lb_view(call):
-    sub = call.data.split("_")[1]
-    lb = leaderboards.get(sub, {})
-    if not lb:
-        bot.answer_callback_query(call.id, "Hali natijalar yo'q.")
-        return
-    sorted_lb = sorted(lb.items(), key=lambda x: x[1]['rating'], reverse=True)
-    text = f"<b>🏆 {sub} Reytingi:</b>\n\n"
-    for i, (uid, d) in enumerate(sorted_lb[:10], 1):
-        text += f"{i}. {d['name']} — {d['rating']} ball ({d['time']}s)\n"
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: call.data in ["correct", "wrong"])
 def handle_answer(call):
@@ -185,16 +178,30 @@ def handle_answer(call):
                    f"🏆 Reyting ball: {rating_points}\n⏱ Vaqt: {total_time} soniya")
         bot.send_message(chat_id, res_msg, parse_mode="HTML")
 
-        # --- AGAR 10/10 BO'LSA SERTIFIKAT YUBORAMIZ ---
+        # --- SERTIFIKAT YUBORISH ---
         if score == 10:
-            bot.send_message(chat_id, "Ajoyib natija! Sertifikatingiz tayyorlanmoqda... ⏳")
+            bot.send_message(chat_id, "Ajoyib! Sertifikatingiz tayyorlanmoqda... ⏳")
             cert = create_certificate(data['name'], sub, score, sinf)
             if cert:
                 bot.send_photo(chat_id, cert, caption=f"Tabriklaymiz {data['name']}! 🏆")
+            else:
+                bot.send_message(chat_id, "Kechirasiz, rasm yaratishda xato bo'ldi.")
         
         start(call.message)
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("lb_"))
+def handle_lb_view(call):
+    sub = call.data.split("_")[1]
+    lb = leaderboards.get(sub, {})
+    if not lb:
+        bot.answer_callback_query(call.id, "Hali natijalar yo'q.")
+        return
+    sorted_lb = sorted(lb.items(), key=lambda x: x[1]['rating'], reverse=True)
+    text = f"<b>🏆 {sub} Reytingi:</b>\n\n"
+    for i, (uid, d) in enumerate(sorted_lb[:10], 1):
+        text += f"{i}. {d['name']} — {d['rating']} ball ({d['time']}s)\n"
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="HTML")
+
 if __name__ == "__main__":
     threading.Thread(target=run_dummy_server, daemon=True).start()
-    print("Bot 24/7 va Sertifikat tizimi bilan ishga tushdi...")
     bot.infinity_polling(timeout=20, long_polling_timeout=10)
