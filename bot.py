@@ -1,42 +1,59 @@
 import os
 import telebot
 import random
-import time  # Vaqtni o'lchash uchun
+import time
+import http.server
+import socketserver
+import threading
 from telebot import types
 
-TOKEN = os.environ.get("BOT_TOKEN")bot = telebot.TeleBot(TOKEN)
+# 1. TOKENNI TEKSHIRING: @BotFather bergan tokenni to'liq qo'ying
+TOKEN = "8647512738:AAHTniHTPrNxw_Ks929ydZuFdIh3anw-WXM" 
+bot = telebot.TeleBot(TOKEN)
 
-# Test ma'lumotlarini import qilish
-from data import matematika_test_base, english_test_base, biology_test_base, tarix_test_base
+# 2. DATA IMPORT (data.py fayli GitHubda borligini tekshiring)
+try:
+    from data import matematika_test_base, english_test_base, biology_test_base, tarix_test_base
+except ImportError:
+    matematika_test_base = english_test_base = biology_test_base = tarix_test_base = {}
 
 user_data = {}
-leaderboard = {} # Natijalarni saqlash uchun (Vaqtincha xotirada)
+# Fanlar bo'yicha alohida leaderboard
+leaderboards = {
+    "Matematika": {},
+    "English": {},
+    "Biologiya": {},
+    "Tarix": {}
+}
+
+# --- RENDER UCHUN DUMMY SERVER (PORT HATOSINI OLISH UCHUN) ---
+def run_dummy_server():
+    PORT = int(os.environ.get("PORT", 8080))
+    handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", PORT), handler) as httpd:
+        httpd.serve_forever()
+
+threading.Thread(target=run_dummy_server, daemon=True).start()
+# ---------------------------------------------------------
 
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("Matematika", "English", "Biologiya", "Tarix", "🏆 Leaderboard")
-    bot.send_message(message.chat.id, "<b>Fanlardan birini tanlang yoki natijalarni ko'ring:</b>", reply_markup=markup, parse_mode="HTML")
+    markup.add("Matematika", "English", "Biologiya", "Tarix")
+    markup.add("🏆 Reyting")
+    bot.send_message(message.chat.id, "<b>Fanlardan birini tanlang:</b>", reply_markup=markup, parse_mode="HTML")
 
-@bot.message_handler(func=lambda m: m.text == "🏆 Leaderboard")
-def show_leaderboard(message):
-    if not leaderboard:
-        bot.send_message(message.chat.id, "Hozircha natijalar yo'q. Birinchi bo'lib test yeching!")
-        return
-    
-    # Ballar bo'yicha saralash
-    sorted_lb = sorted(leaderboard.items(), key=lambda x: x[1]['score'], reverse=True)
-    text = "<b>🏆 ENG YAXSHI NATIJALAR:</b>\n\n"
-    for i, (user, data) in enumerate(sorted_lb[:10], 1):
-        text += f"{i}. {data['name']} — {data['score']} ball ({data['time']} sek)\n"
-    
-    bot.send_message(message.chat.id, text, parse_mode="HTML")
+@bot.message_handler(func=lambda m: m.text == "🏆 Reyting")
+def show_leaderboard_menu(message):
+    markup = types.InlineKeyboardMarkup()
+    for sub in leaderboards.keys():
+        markup.add(types.InlineKeyboardButton(sub, callback_data=f"lb_{sub}"))
+    bot.send_message(message.chat.id, "Qaysi fan bo'yicha reytingni ko'rmoqchisiz?", reply_markup=markup)
 
 @bot.message_handler(func=lambda m: m.text in ["Matematika", "English", "Biologiya", "Tarix"])
 def subject(message):
     user_data[message.chat.id] = {
-        'subject': message.text, 
-        'start_time': time.time(), # Test boshlangan vaqt
+        'subject': message.text,
         'name': message.from_user.first_name
     }
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -56,18 +73,25 @@ def select_class(message):
     questions = bases[sub].get(sinf_nomi)
     
     if questions:
-        q_list = random.sample(questions, len(questions))
-        user_data[chat_id].update({'questions': q_list, 'score': 0, 'current_q': 0, 'start_time': time.time()})
+        # Har doim 10 ta tasodifiy savol olish (qiziqarli bo'lishi uchun)
+        count = min(len(questions), 10)
+        q_list = random.sample(questions, count)
+        
+        user_data[chat_id].update({
+            'questions': q_list, 
+            'score': 0, 
+            'current_q': 0, 
+            'sinf': sinf_nomi,
+            'start_time': time.time()
+        })
         send_q(chat_id)
     else:
         bot.send_message(chat_id, "Hozircha bu sinf uchun testlar yo'q.")
 
 def send_q(chat_id):
     data = user_data[chat_id]
-    curr = data['current_q']
-    q = data['questions'][curr]
+    q = data['questions'][data['current_q']]
     
-    text = f"<b>{curr + 1}-savol:</b>\n\n{q['q']}"
     markup = types.InlineKeyboardMarkup()
     opts = q['o'].copy()
     random.shuffle(opts)
@@ -76,9 +100,24 @@ def send_q(chat_id):
         callback = "c" if o == q['a'] else "w"
         markup.add(types.InlineKeyboardButton(o, callback_data=callback))
     
-    bot.send_message(chat_id, text, reply_markup=markup, parse_mode="HTML")
+    bot.send_message(chat_id, f"<b>{data['current_q'] + 1}-savol:</b>\n\n{q['q']}", reply_markup=markup, parse_mode="HTML")
 
-@bot.callback_query_handler(func=lambda call: True)
+@bot.callback_query_handler(func=lambda call: call.data.startswith("lb_"))
+def handle_lb_view(call):
+    sub = call.data.split("_")[1]
+    lb = leaderboards.get(sub, {})
+    if not lb:
+        bot.answer_callback_query(call.id, f"{sub} fani bo'yicha hali natijalar yo'q.")
+        return
+
+    sorted_lb = sorted(lb.items(), key=lambda x: x[1]['rating'], reverse=True)
+    text = f"<b>🏆 {sub} Reytingi (Top 10):</b>\n\n"
+    for i, (uid, d) in enumerate(sorted_lb[:10], 1):
+        text += f"{i}. {d['name']} — {d['rating']} ball ({d['time']}s)\n"
+    
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="HTML")
+
+@bot.callback_query_handler(func=lambda call: call.data in ["c", "w"])
 def handle_answer(call):
     chat_id = call.message.chat.id
     if chat_id not in user_data: return
@@ -88,47 +127,39 @@ def handle_answer(call):
     
     user_data[chat_id]['current_q'] += 1
     
-    try:
-        bot.delete_message(chat_id, call.message.message_id)
-    except:
-        pass
+    try: bot.delete_message(chat_id, call.message.message_id)
+    except: pass
     
-    if user_data[chat_id]['current_q'] < len(user_data[chat_id]['questions']):
+    data = user_data[chat_id]
+    if data['current_q'] < len(data['questions']):
         send_q(chat_id)
     else:
-        # Test tugadi - Vaqtni hisoblash
-        end_time = time.time()
-        total_time = round(end_time - user_data[chat_id]['start_time'], 1)
-        score = user_data[chat_id]['score']
-        total = len(user_data[chat_id]['questions'])
-        user_name = user_data[chat_id]['name']
-
-        # Leaderboardga qo'shish (agar natija yaxshi bo'lsa yangilaydi)
-        if chat_id not in leaderboard or score > leaderboard[chat_id]['score']:
-            leaderboard[chat_id] = {'name': user_name, 'score': score, 'time': total_time}
-
-        result_text = (
-            f"<b>🏁 Test yakunlandi!</b>\n\n"
-            f"👤 Ism: <b>{user_name}</b>\n"
-            f"✅ To'g'ri javoblar: <b>{score}/{total}</b>\n"
-            f"⏱ Sarflangan vaqt: <b>{total_time} soniya</b>"
-        )
+        # TEST TUGADI: Reyting hisoblash
+        total_time = round(time.time() - data['start_time'], 1)
+        score = data['score']
+        sinf = int(data['sinf'])
+        sub = data['subject']
         
-        bot.send_message(chat_id, result_text, parse_mode="HTML")
+        # Mantiq: Sinf qancha yuqori bo'lsa, ball shuncha ko'p (qiyinchilik uchun)
+        # 5-sinf coef: 1.0, 11-sinf coef: 1.6
+        rating_points = round(score * (1 + (sinf - 5) * 0.1), 1)
+
+        # Leaderboardga yozish
+        if chat_id not in leaderboards[sub] or rating_points > leaderboards[sub][chat_id]['rating']:
+            leaderboards[sub][chat_id] = {
+                'name': data['name'],
+                'rating': rating_points,
+                'time': total_time
+            }
+
+        res = (f"<b>🏁 Test yakunlandi!</b>\n\n"
+               f"Fan: {sub} ({sinf}-sinf)\n"
+               f"Natija: {score}/{len(data['questions'])}\n"
+               f"<b>Reyting ballingiz: {rating_points}</b>\n"
+               f"Vaqt: {total_time} soniya")
+        
+        bot.send_message(chat_id, res, parse_mode="HTML")
         start(call.message)
 
 if __name__ == "__main__":
-    print("Bot Leaderboard va Taymer bilan ishga tushdi...")
-    import http.server
-import socketserver
-import threading
-
-def run_dummy_server():
-    PORT = int(os.environ.get("PORT", 8080))
-    handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", PORT), handler) as httpd:
-        httpd.serve_forever()
-
-threading.Thread(target=run_dummy_server, daemon=True).start()
     bot.infinity_polling()
-# ishla
