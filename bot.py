@@ -1,3 +1,4 @@
+import os
 import telebot
 import random
 import time  # Vaqtni o'lchash uchun
