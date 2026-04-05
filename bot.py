@@ -3,7 +3,7 @@ import random
 import time  # Vaqtni o'lchash uchun
 from telebot import types
 
-TOKEN = "TOKENINGIZNI_SHU_YERGA_YOZING"
+TOKEN = "8647512738:AAHTniHTPrNxw_Ks929ydZuFdIh3anw-WXM"
 bot = telebot.TeleBot(TOKEN)
 
 # Test ma'lumotlarini import qilish
