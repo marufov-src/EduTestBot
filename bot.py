@@ -119,5 +119,16 @@ def handle_answer(call):
 
 if __name__ == "__main__":
     print("Bot Leaderboard va Taymer bilan ishga tushdi...")
+    import http.server
+import socketserver
+import threading
+
+def run_dummy_server():
+    PORT = int(os.environ.get("PORT", 8080))
+    handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", PORT), handler) as httpd:
+        httpd.serve_forever()
+
+threading.Thread(target=run_dummy_server, daemon=True).start()
     bot.infinity_polling()
 # ishla
