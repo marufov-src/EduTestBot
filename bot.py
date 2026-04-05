@@ -120,3 +120,4 @@ def handle_answer(call):
 if __name__ == "__main__":
     print("Bot Leaderboard va Taymer bilan ishga tushdi...")
     bot.infinity_polling()
+# ishla
