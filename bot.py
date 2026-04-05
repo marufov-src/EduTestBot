@@ -1,17 +1,16 @@
-import os
 import telebot
 import random
 from telebot import types
 
-# data.py faylidan testlarni import qilish
+# 1. TOKEnni shu yerga qo'ying:
+TOKEN = "8647512738:AAHTniHTPrNxw_Ks929ydZuFdIh3anw-WXM" 
+bot = telebot.TeleBot(TOKEN)
+
+# 2. data.py fayli bot.py bilan bitta papkada bo'lishi shart
 try:
     from data import matematika_test_base, english_test_base, biology_test_base, tarix_test_base
 except ImportError:
-    print("XATO: data.py fayli bot.py bilan bitta papkada bo'lishi kerak!")
-
-# Tokenni bu yerga qo'ying yoki muhit o'zgaruvchisiga (Environment Variable) BOT_TOKEN deb yozing
-TOKEN = os.environ.get("BOT_TOKEN") 
-bot = telebot.TeleBot(TOKEN)
+    print("XATO: data.py fayli topilmadi! Uni bot.py bilan bitta papkaga qo'ying.")
 
 user_data = {}
 
@@ -19,12 +18,7 @@ user_data = {}
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("Matematika", "English", "Biologiya", "Tarix")
-    bot.send_message(
-        message.chat.id, 
-        "<b>Salom! Fanlardan birini tanlang va testni boshlang:</b>", 
-        reply_markup=markup, 
-        parse_mode="HTML"
-    )
+    bot.send_message(message.chat.id, "<b>Salom! Fanlardan birini tanlang:</b>", reply_markup=markup, parse_mode="HTML")
 
 @bot.message_handler(func=lambda m: m.text in ["Matematika", "English", "Biologiya", "Tarix"])
 def subject(message):
@@ -32,7 +26,7 @@ def subject(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btns = [types.KeyboardButton(f"{i}-sinf") for i in range(5, 12)]
     markup.add(*btns)
-    bot.send_message(message.chat.id, f"📌 {message.text}. Endi sinfni tanlang:", reply_markup=markup)
+    bot.send_message(message.chat.id, f"📌 {message.text}. Sinvingizni tanlang:", reply_markup=markup)
 
 @bot.message_handler(func=lambda m: "sinf" in m.text)
 def select_class(message):
@@ -57,7 +51,7 @@ def select_class(message):
         user_data[chat_id].update({'questions': q_list, 'score': 0, 'current_q': 0})
         send_q(chat_id)
     else:
-        bot.send_message(chat_id, "Hozircha bu sinf uchun testlar mavjud emas.")
+        bot.send_message(chat_id, "Hozircha bu sinf uchun testlar yo'q.")
 
 def send_q(chat_id):
     data = user_data[chat_id]
@@ -92,20 +86,15 @@ def handle_answer(call):
     except:
         pass
     
-    # MUHIM QISM: else endi tepadagi if bilan bir qatorda
     if user_data[chat_id]['current_q'] < len(user_data[chat_id]['questions']):
         send_q(chat_id)
     else:
         score = user_data[chat_id]['score']
         total = len(user_data[chat_id]['questions'])
-        bot.send_message(
-            chat_id, 
-            f"<b>🏁 Test yakunlandi!</b>\n\nSiz {total} tadan <b>{score}</b> tasiga to'g'ri javob berdingiz.", 
-            parse_mode="HTML"
-        )
+        bot.send_message(chat_id, f"<b>🏁 Test yakunlandi!</b>\n\nNatija: <b>{score}/{total}</b>", parse_mode="HTML")
         start(call.message)
 
-# Bu qator eng chekkada va eng pastda bo'lishi kerak
+# ENG MUHIM QISMI:
 if __name__ == "__main__":
-    print("Bot ishga tushdi...")
+    print("Bot ishlamoqda...")
     bot.infinity_polling()
